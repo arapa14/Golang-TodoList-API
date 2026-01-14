@@ -5,6 +5,7 @@ import (
 	"TODO-LIST-API/internal/config"
 	"TODO-LIST-API/internal/shared"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,13 +17,21 @@ import (
 type Todo struct {
 	ID           int    `json:"id"`
 	Title        string `json:"title"`
-	Description  string `json:"description"`
+	Description  *string `json:"description"`
 	Is_Completed bool   `json:"is_completed"`
-	Due_Date     string `json:"due_date"`
+	Due_Date     *string `json:"due_date"`
 	Priority     int    `json:"priority"`
 	Created_At   string `json:"created_at"`
 	Updated_At   string `json:"updated_at"`
-	Deleted_At   string `json:"deleted_at"`
+	Deleted_At   *string `json:"deleted_at"`
+}
+
+// DTO
+type PostTodo struct {
+	Title        string `json:"title"`
+	Description  *string `json:"description"`
+	Due_Date     *string `json:"due_date"`
+	Priority     int    `json:"priority"`
 }
 
 // Global variable
@@ -57,6 +66,8 @@ func HandleTodo(w http.ResponseWriter, r *http.Request) {
 		TodoGetUC(w, r)
 		return
 	case http.MethodPost:
+		TodoPostUC(w, r)
+		return
 	default:
 		shared.RespondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -119,4 +130,33 @@ func TodoGetUC(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shared.RespondSuccess(w, http.StatusOK, "Get todo", todos, meta)
+}
+
+// Todo Post Use Case
+func TodoPostUC(w http.ResponseWriter, r *http.Request) {
+	var postTodo PostTodo
+	var newTodo Todo
+
+	if err := json.NewDecoder(r.Body).Decode(&postTodo); err != nil {
+		shared.RespondError(w, http.StatusBadRequest, "JSON isn't valid")
+		return
+	}
+
+	if postTodo.Title == "" {
+		shared.RespondError(w, http.StatusBadRequest, "Title cannot empty")
+		return
+	}
+
+	err := db.QueryRow(
+		"INSERT INTO todos_tb (title, description, priority, due_date) VALUES ($1, $2, $3, $4) RETURNING id, title, description, is_completed, due_date, priority, created_at, updated_at, deleted_at",
+		postTodo.Title, postTodo.Description, postTodo.Priority, postTodo.Due_Date,
+	).Scan(&newTodo.ID, &newTodo.Title, &newTodo.Description, &newTodo.Is_Completed, &newTodo.Due_Date, &newTodo.Priority, &newTodo.Created_At, &newTodo.Updated_At, &newTodo.Deleted_At)
+	if err != nil {
+		log.Println(err)
+		shared.RespondError(w, http.StatusInternalServerError, "Failed insert todo")
+		return
+	}
+
+	shared.RespondSuccess(w, http.StatusCreated, "Post todo", newTodo)
+	return
 }
