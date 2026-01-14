@@ -34,7 +34,7 @@ func httpStatusToCode(status int) string {
 	)
 }
 
-func RepondSuccess(w http.ResponseWriter, status int, message string, items interface{}, meta ...Meta) {
+func RespondSuccess(w http.ResponseWriter, status int, message string, items interface{}, meta ...Meta) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	var data interface{}
@@ -60,7 +60,7 @@ func RepondSuccess(w http.ResponseWriter, status int, message string, items inte
 	log.Println("success:", message)
 }
 
-func RepondError(w http.ResponseWriter, status int, message string) {
+func RespondError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(APIMessage{
