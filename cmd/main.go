@@ -17,30 +17,30 @@ import (
 
 // Data table 1: Todo
 type Todo struct {
-	ID           int    `json:"id"`
-	Title        string `json:"title"`
+	ID           int     `json:"id"`
+	Title        string  `json:"title"`
 	Description  *string `json:"description"`
-	Is_Completed bool   `json:"is_completed"`
+	Is_Completed bool    `json:"is_completed"`
 	Due_Date     *string `json:"due_date"`
-	Priority     int    `json:"priority"`
-	Created_At   string `json:"created_at"`
-	Updated_At   string `json:"updated_at"`
+	Priority     int     `json:"priority"`
+	Created_At   string  `json:"created_at"`
+	Updated_At   string  `json:"updated_at"`
 	Deleted_At   *string `json:"deleted_at"`
 }
 
 // DTO
 type PostTodo struct {
-	Title        string `json:"title"`
-	Description  *string `json:"description"`
-	Due_Date     *string `json:"due_date"`
-	Priority     int    `json:"priority"`
+	Title       string  `json:"title"`
+	Description *string `json:"description"`
+	Due_Date    *string `json:"due_date"`
+	Priority    int     `json:"priority"`
 }
 
 type PutTodo struct {
-	Title        *string `json:"title"`
-	Description  *string `json:"description"`
-	Due_Date     *string `json:"due_date"`
-	Priority     *int    `json:"priority"`
+	Title       *string `json:"title"`
+	Description *string `json:"description"`
+	Due_Date    *string `json:"due_date"`
+	Priority    *int    `json:"priority"`
 }
 
 // Global variable
@@ -98,6 +98,8 @@ func HandleTodoById(w http.ResponseWriter, r *http.Request) {
 		TodoPutUC(w, r, id)
 		return
 	case http.MethodDelete:
+		TodoDeleteUC(w, r, id)
+		return
 	default:
 		shared.RespondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -120,7 +122,8 @@ func TodoGetUC(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(
 		`SELECT id, title, description, is_completed, due_date,
 		        priority, created_at, updated_at, deleted_at
-		 FROM todos_tb
+		 FROM todos_tb 
+		 WHERE deleted_at IS NULL 
 		 ORDER BY id ASC
 		 LIMIT $1 OFFSET $2`,
 		limit, offset,
@@ -295,4 +298,41 @@ func TodoPutUC(w http.ResponseWriter, r *http.Request, id int) {
 	}
 
 	shared.RespondSuccess(w, http.StatusOK, "Todo updated", updatedTodo)
+}
+
+// Todo delete use case (soft delete)
+func TodoDeleteUC(w http.ResponseWriter, r *http.Request, id int) {
+	var deletedTodo Todo
+
+	// Soft delete & return deleted data
+	err := db.QueryRow(
+		`UPDATE todos_tb
+		 SET deleted_at = NOW()
+		 WHERE id = $1 AND deleted_at IS NULL
+		 RETURNING id, title, description, is_completed, due_date,
+		           priority, created_at, updated_at, deleted_at`,
+		id,
+	).Scan(
+		&deletedTodo.ID,
+		&deletedTodo.Title,
+		&deletedTodo.Description,
+		&deletedTodo.Is_Completed,
+		&deletedTodo.Due_Date,
+		&deletedTodo.Priority,
+		&deletedTodo.Created_At,
+		&deletedTodo.Updated_At,
+		&deletedTodo.Deleted_At,
+	)
+
+	if err == sql.ErrNoRows {
+		shared.RespondError(w, http.StatusNotFound, "Todo not found or already deleted")
+		return
+	}
+
+	if err != nil {
+		shared.RespondError(w, http.StatusInternalServerError, "Failed delete todo")
+		return
+	}
+
+	shared.RespondSuccess(w, http.StatusOK, "Todo deleted", deletedTodo)
 }
