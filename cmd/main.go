@@ -29,8 +29,14 @@ func main() {
 	}
 
 	// Route
+	http.HandleFunc("/api/v1/todos", HandleTodo)
 
 	// Server
 	fmt.Println("Server running at port: 8080")
 	http.ListenAndServe(":8080", nil)
+}
+
+// Todo handler
+func HandleTodo(w http.ResponseWriter, r *http.Request) {
+
 }
